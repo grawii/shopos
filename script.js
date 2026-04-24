@@ -219,3 +219,40 @@ if (!isDevMode) {
 
 // START EVERYTHING
 window.addEventListener('DOMContentLoaded', () => { initDecors(); initNav(); syncData(); });
+/* --- ระบบจัดการรูปโปรไฟล์เพิ่มเติม --- */
+function openProfileModal() { document.getElementById('profile-modal').classList.add('active'); }
+function closeProfileModal() { document.getElementById('profile-modal').classList.remove('active'); }
+
+function formatDriveLink(url) {
+    if (url.includes('drive.google.com')) {
+        let fileId = "";
+        if (url.includes('id=')) { fileId = url.split('id=')[1].split('&')[0]; } 
+        else if (url.includes('/d/')) { fileId = url.split('/d/')[1].split('/')[0]; }
+        return fileId ? `https://lh3.googleusercontent.com/d/${fileId}` : url;
+    }
+    return url;
+}
+
+function updateProfileImage() {
+    const input = document.getElementById('new-profile-url');
+    let rawUrl = input.value.trim();
+    if (!rawUrl) return alert("กรุณาวางลิงก์รูปภาพก่อนจ้า");
+
+    const finalUrl = formatDriveLink(rawUrl);
+    document.getElementById('shop-profile-img').src = finalUrl;
+    
+    // บันทึกเก็บไว้ในเครื่องชั่วคราว
+    localStorage.setItem('angun_temp_profile', finalUrl);
+
+    alert("อัปเดตรูปโปรไฟล์ชั่วคราวสำเร็จ!\n(ถ้าจะให้ถาวร อย่าลืมแก้ใน Google Sheet ด้วยน้า)");
+    input.value = "";
+    closeProfileModal();
+}
+
+// เช็คค่ารูปโปรไฟล์ที่เคยบันทึกไว้ในเครื่องตอนเปิดเว็บ
+if(localStorage.getItem('angun_temp_profile')) {
+    setTimeout(() => {
+        const tempImg = localStorage.getItem('angun_temp_profile');
+        if(tempImg) document.getElementById('shop-profile-img').src = tempImg;
+    }, 1500); // รอให้ syncData ทำงานเสร็จก่อนค่อยทับ
+}
