@@ -61,7 +61,12 @@
                     </svg>
                 </div>
                 <div class="flex items-center gap-5">
-                    <div class="w-20 h-20 rounded-full border-4 border-white overflow-hidden shadow-md bg-white"><img id="shop-profile-img" src="" alt="Logo"></div>
+                    <div class="w-20 h-20 rounded-full border-4 border-white overflow-hidden shadow-md bg-white relative group">
+                        <img id="shop-profile-img" src="" alt="Logo" class="w-full h-full object-cover">
+                        <button type="button" onclick="openProfileModal()" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center text-white">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        </button>
+                    </div>
                     <div class="text-white">
                         <h2 id="shop-name-display" class="text-3xl font-bold font-eng leading-none text-white">ร้านองุ่นหวาน</h2>
                         <p class="text-[10px] opacity-80 uppercase tracking-widest font-bold mt-2">Digital Products Shop</p>
@@ -161,6 +166,19 @@
             <div class="border-t-2 border-pj-blue-light pt-6 flex justify-between items-end">
                 <div><span class="text-[10px] opacity-40 font-bold uppercase text-pj-brown-dark">ยอดรวม</span><div class="text-4xl font-bold text-pj-brown-dark mt-1"><span id="cart-sum">0</span>.-</div></div>
                 <button onclick="proceedToCheckout()" class="btn-pj-main px-10 py-5 rounded-[25px]">ไปหน้าชำระเงิน</button>
+            </div>
+        </div>
+    </div>
+    <div id="profile-modal" class="modal-cart">
+        <div class="bg-white w-[90%] max-w-[400px] rounded-[35px] p-8 relative shadow-2xl border-2 border-pj-brown-main">
+            <button type="button" onclick="closeProfileModal()" class="absolute top-6 right-6 w-10 h-10 flex items-center justify-center bg-gray-100 rounded-full text-pj-brown-dark">✕</button>
+            <h3 class="font-bold text-lg text-pj-brown-dark mb-2 text-center">🖼️ เปลี่ยนรูปโปรไฟล์</h3>
+            <p class="text-[10px] text-center mb-6 opacity-60 uppercase tracking-widest font-bold">ใส่ลิงก์รูปภาพ (รองรับ Google Drive)</p>
+            
+            <input type="text" id="new-profile-url" placeholder="วางลิงก์รูปภาพที่นี่..." class="admin-input mb-6 w-full text-center">
+            
+            <div class="flex gap-2">
+                <button type="button" onclick="updateProfileImage()" class="btn-pj-main flex-1 py-4 rounded-2xl text-sm font-bold shadow-md">บันทึกรูปภาพ</button>
             </div>
         </div>
     </div>
