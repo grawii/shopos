@@ -78,8 +78,20 @@ function refreshUI() {
     renderHome();
     const catTitle = document.getElementById('cat-header-title');
     if(!document.getElementById('page-subcat').classList.contains('hidden-page') && catTitle) { handleGroupClick(catTitle.innerText, true); }
-    setTimeout(() => { if(window.lucide) lucide.
-    /* script.js - Part 2: Admin, Security & Profile Logic */
+    setTimeout(() => { if(window.lucide) lucide.createIcons(); }, 100);
+}
+
+function showPage(id) {
+    const mainHeader = document.getElementById('main-header');
+    document.querySelectorAll('.page-container').forEach(p => p.classList.add('hidden-page'));
+    const el = document.getElementById('page-'+id);
+    if(el) {
+        el.classList.remove('hidden-page');
+        if(id === 'checkout') { if(mainHeader) mainHeader.style.display = 'none'; window.scrollTo(0, 0); } else { if(mainHeader) mainHeader.style.display = 'block'; }
+    }
+    if (window.lucide) lucide.createIcons();
+}
+/* script.js - Part 2: Admin, Security & Profile Logic */
 
 function proceedToCheckout() {
     if (Object.keys(cart).length === 0) return alert("ตะกร้าว่างเปล่าจ้า");
@@ -119,7 +131,6 @@ async function syncData() {
         if(data.status === 'success') {
             products = data.products; localStorage.setItem('angun_cache', JSON.stringify(products));
             if(data.settings) {
-                // แก้ไข: ดึงรูปจาก Sheet มาแสดงเป็นอันดับแรกเพื่อให้ถาวรทุกเครื่อง
                 if(data.settings.profileImg) {
                     document.getElementById('shop-profile-img').src = data.settings.profileImg;
                     localStorage.setItem('angun_temp_profile', data.settings.profileImg);
@@ -215,7 +226,6 @@ window.addEventListener('DOMContentLoaded', () => { initDecors(); initNav(); syn
 
 /* --- ระบบจัดการรูปโปรไฟล์เพิ่มเติม --- */
 function openProfileModal() { 
-    // แก้ไข: ป้องกันลูกค้ากด ต้องเป็น Admin เท่านั้นถึงจะขึ้น Popup
     if (!isAdmin) {
         alert("ส่วนนี้สำหรับเจ้าของร้าน (Admin) เท่านั้นจ้า ✨");
         return; 
@@ -247,7 +257,6 @@ async function updateProfileImage() {
     btn.disabled = true;
 
     try {
-        // 🚀 บันทึกลงฐานข้อมูล Google Sheet ทันที (ต้องอัปเดต Library ด้วย)
         await fetch(SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
