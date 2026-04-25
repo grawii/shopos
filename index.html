@@ -22,7 +22,6 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* ลบแถบสีเวลาแตะปุ่ม และตั้งค่าฟอนต์ */
         * { -webkit-tap-highlight-color: transparent; }
         body { font-family: 'Prompt', sans-serif; }
         .wave-letter { display: inline-block; animation: wave 2s infinite ease-in-out; animation-delay: calc(var(--i) * 0.1s); }
@@ -174,9 +173,7 @@
             <button type="button" onclick="closeProfileModal()" class="absolute top-6 right-6 w-10 h-10 flex items-center justify-center bg-gray-100 rounded-full text-pj-brown-dark">✕</button>
             <h3 class="font-bold text-lg text-pj-brown-dark mb-2 text-center">🖼️ เปลี่ยนรูปโปรไฟล์</h3>
             <p class="text-[10px] text-center mb-6 opacity-60 uppercase tracking-widest font-bold">ใส่ลิงก์รูปภาพ (รองรับ Google Drive)</p>
-            
             <input type="text" id="new-profile-url" placeholder="วางลิงก์รูปภาพที่นี่..." class="admin-input mb-6 w-full text-center">
-            
             <div class="flex gap-2">
                 <button type="button" onclick="updateProfileImage()" class="btn-pj-main flex-1 py-4 rounded-2xl text-sm font-bold shadow-md">บันทึกรูปภาพ</button>
             </div>
