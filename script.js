@@ -1,12 +1,25 @@
-/* script.js - Part 1: Core Logic */
+/* script.js - Part 1: Global State & Image Engine */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3cgPz1YWymqGxYQKzYCeoaBFWHnS09fJ5h8QEJ8EC9V8SZ8yOJJnB1P41Ix2yahBE/exec";
 
-let products = JSON.parse(localStorage.getItem('angun_cache')) || [];
-let cart = {}; 
-let isAdmin = false;
-let currentPass = "1234";
+// 📦 Global State คุมทุกอย่าง (เหมือน React useState)
+let state = {
+    products: JSON.parse(localStorage.getItem('angun_cache')) || [],
+    cart: {},
+    isAdmin: false,
+    currentPass: "1234",
+    settings: {
+        profileImg: "",
+        shopName: "ร้านองุ่นหวาน"
+    },
+    dropdowns: {
+        mainCats: [],
+        subCats: [],
+        channels: []
+    },
+    isLoading: true
+};
 
-// 🛠 ฟังก์ชันแก้ไขพิเศษ: ซ่อม Syntax และใช้ Direct Link ที่เสถียรที่สุด
+// 🛠 ฟังก์ชันแปลงลิงก์ Drive (ซ่อม Syntax $ ครบถ้วน)
 function formatDriveLink(url) {
     if (!url || typeof url !== 'string') return url;
     if (url.includes('drive.google.com')) {
@@ -16,7 +29,6 @@ function formatDriveLink(url) {
         } else if (url.includes('/d/')) { 
             fileId = url.split('/d/')[1].split('/')[0]; 
         }
-        // ✅ ใช้เครื่องหมาย $ และ backtick เพื่อดึง ID มาต่อเป็นลิงก์รูปที่ถูกต้อง
         return fileId ? `https://lh3.googleusercontent.com/d/${fileId}` : url;
     }
     return url;
@@ -44,10 +56,11 @@ function updateDropdowns(dropdownData) {
     fill('list-sub', dropdownData.subCats);
     fill('list-net', dropdownData.channels);
 }
-/* script.js - Part 2: Display & Cart */
+/* script.js - Part 2: Display & Cart Logic (100% Functionality) */
+
 function renderCard(p) {
     const rowId = Number(p.row);
-    const qty = cart[rowId] || 0; 
+    const qty = state.cart[rowId] || 0; 
     const finalPrice = p.price - (p.discount || 0);
     const isLimit = p.limitOne === true || p.limitOne === "YES";
     const previewLink = p.preview || "";
@@ -78,146 +91,150 @@ function renderCard(p) {
 
 function updateCart(rowId, change, limitOne) {
     const id = Number(rowId);
-    const currentQty = cart[id] || 0;
+    const currentQty = state.cart[id] || 0;
     const newQty = currentQty + change;
-    if (newQty <= 0) { delete cart[id]; } 
+    if (newQty <= 0) { delete state.cart[id]; } 
     else if (limitOne && change > 0 && currentQty >= 1) { alert("มีสินค้านี้ในตะกร้าแล้ว (จำกัดซื้อได้เพียง 1 ชิ้นจ้า)"); } 
-    else { cart[id] = newQty; }
+    else { state.cart[id] = newQty; }
     refreshUI();
+    if(document.getElementById('cart-modal').classList.contains('active')) renderCartItems();
+}
+
+function renderCartItems() {
+    const list = document.getElementById('cart-list-items'); let sum = 0;
+    list.innerHTML = Object.keys(state.cart).map(rowId => {
+        const p = state.products.find(x => Number(x.row) === Number(rowId)); if(!p) return '';
+        const qty = state.cart[rowId]; const pricePerUnit = p.price - (p.discount || 0); const totalPrice = pricePerUnit * qty; sum += totalPrice;
+        return `<div class="flex flex-col bg-pj-blue-light/40 p-4 rounded-3xl mb-2 shadow-sm"><div class="flex justify-between items-start mb-2"><span class="text-[11px] font-bold">${p.name}</span><button onclick="updateCart(${p.row}, -${qty}, false)" class="btn-qty-action btn-del-style">✕</button></div><div class="flex justify-between items-center border-t border-white/50 pt-2"><div class="flex items-center gap-3 bg-white/50 rounded-xl px-2 py-1"><button onclick="updateCart(${p.row}, -1, false)" class="btn-qty-action btn-minus-style">-</button><span class="text-xs font-bold w-8 text-center">${qty}</span><button onclick="updateCart(${p.row}, 1, false)" class="btn-qty-action btn-plus-style">+</button></div><span class="text-xs font-bold text-pj-brown-dark">${totalPrice}.-</span></div></div>`;
+    }).join('') || '<p class="text-center py-10 opacity-30">ไม่มีสินค้าในตะกร้า</p>';
+    document.getElementById('cart-sum').innerText = sum;
 }
 
 function refreshUI() {
+    const totalItems = Object.values(state.cart).reduce((a, b) => a + b, 0);
     const badge = document.getElementById('cart-badge');
-    const totalItems = Object.values(cart).reduce((a, b) => a + b, 0);
-    if(badge) { badge.innerText = totalItems; badge.style.display = totalItems > 0 ? 'flex' : 'none'; }
-    renderHome();
-    const catTitle = document.getElementById('cat-header-title');
-    if(!document.getElementById('page-subcat').classList.contains('hidden-page') && catTitle) { handleGroupClick(catTitle.innerText, true); }
-    setTimeout(() => { if(window.lucide) { lucide.createIcons(); } }, 100);
-}
-
-function showPage(id) {
-    const mainHeader = document.getElementById('main-header');
-    document.querySelectorAll('.page-container').forEach(p => p.classList.add('hidden-page'));
-    const el = document.getElementById('page-'+id);
-    if(el) {
-        el.classList.remove('hidden-page');
-        if(id === 'checkout') { if(mainHeader) mainHeader.style.display = 'none'; window.scrollTo(0, 0); } else { if(mainHeader) mainHeader.style.display = 'block'; }
+    if (badge) {
+        badge.innerText = totalItems;
+        badge.style.display = totalItems > 0 ? 'flex' : 'none';
     }
+    renderHome();
     if (window.lucide) lucide.createIcons();
 }
-/* script.js - Part 3: Database & Admin Control */
+/* script.js - Part 3: Sync, Checkout & Admin Control */
 
 async function syncData() {
     try {
-        const res = await fetch(SCRIPT_URL); 
-        const data = await res.json();
-        if(data.status === 'success') {
-            products = data.products.map(p => {
-                p.image = formatDriveLink(p.image);
-                return p;
-            });
-            localStorage.setItem('angun_cache', JSON.stringify(products));
-            
-            if(data.settings) {
-                const imgEl = document.getElementById('shop-profile-img');
-                // 🛠 แก้ให้หาคีย์ชื่อ "ProfileImage" (ตัวพิมพ์ใหญ่ตามในชีทคุณเป๊ะๆ)
-                const profileUrl = data.settings.ProfileImage || data.settings.profileImg;
-                
-                if(profileUrl && imgEl) { 
-                    imgEl.src = formatDriveLink(profileUrl); 
-                }
-                const nameEl = document.getElementById('shop-name-display');
-                if(data.settings.shopName && nameEl) { nameEl.innerText = data.settings.shopName; }
-                currentPass = data.settings.AdminPassword || data.settings.adminPass || "1234";
-                if(data.settings.dropdowns) updateDropdowns(data.settings.dropdowns);
+        const res = await fetch(SCRIPT_URL);
+        const response = await res.json();
+        if (response.status === 'success') {
+            state.products = response.products.map(p => ({ ...p, image: formatDriveLink(p.image) }));
+            localStorage.setItem('angun_cache', JSON.stringify(state.products));
+            if (response.settings) {
+                const s = response.settings;
+                state.settings.profileImg = formatDriveLink(s.ProfileImage || s.profileImg);
+                state.settings.shopName = s.shopName || s.ShopName || state.settings.shopName;
+                state.currentPass = s.adminPass || s.AdminPassword || state.currentPass;
+                if (s.dropdowns) { state.dropdowns = s.dropdowns; updateDropdowns(state.dropdowns); }
             }
-            refreshUI(); 
-            renderAdminItems();
+            applyStateToUI();
         }
-    } catch(e) { console.warn("Offline Mode"); refreshUI(); }
+    } catch (e) { console.warn("Sync Error", e); }
+}
+
+function applyStateToUI() {
+    const imgEl = document.getElementById('shop-profile-img');
+    if (imgEl && state.settings.profileImg) imgEl.src = state.settings.profileImg;
+    const nameEl = document.getElementById('shop-name-display');
+    if (nameEl) nameEl.innerText = state.settings.shopName;
+    refreshUI(); renderAdminItems();
+}
+
+function proceedToCheckout() {
+    if (Object.keys(state.cart).length === 0) return alert("ตะกร้าว่างเปล่าจ้า");
+    toggleCartModal(false); showPage('checkout');
+    const itemsList = document.getElementById('checkout-items-list');
+    const calcList = document.getElementById('checkout-summary-calc');
+    const inputContainer = document.getElementById('checkout-input-container');
+    let totalNormal = 0; let totalDiscount = 0; let hasGroupProduct = false; let hasDigitalProduct = false;
+    itemsList.innerHTML = Object.keys(state.cart).map(rowId => {
+        const p = state.products.find(x => Number(x.row) === Number(rowId));
+        const qty = state.cart[rowId]; totalNormal += p.price * qty; totalDiscount += (p.discount || 0) * qty;
+        if (p.cat === 'กลุ่ม' || p.cat === 'รวมกลุ่ม') hasGroupProduct = true; else hasDigitalProduct = true;
+        return `<div class="flex justify-between items-center p-2 border-b border-pj-brown-light/10"><div class="flex flex-col"><span class="text-xs font-bold">${p.name}</span><span class="text-[10px] opacity-60">จำนวน ${qty} ชุด</span></div><span class="text-xs font-bold">${p.price - (p.discount || 0)}.-</span></div>`;
+    }).join('');
+    calcList.innerHTML = `<div class="flex justify-between"><span>ราคาปกติ</span><span>${totalNormal}.-</span></div><div class="flex justify-between text-red-500"><span>ส่วนลดทั้งหมด</span><span>-${totalDiscount}.-</span></div>`;
+    document.getElementById('checkout-final-sum').innerText = totalNormal - totalDiscount;
+    let inputHtml = "";
+    if (hasDigitalProduct) inputHtml += `<input type="email" id="cust-email" placeholder="กรอกอีเมล (สกุล @gmail.com เท่านั้น)" class="admin-input mb-3">`;
+    if (hasGroupProduct) inputHtml += `<input type="text" id="cust-line" placeholder="ไอดีไลน์ หรือ ลิ้งค์ไลน์ (สำหรับดึงเข้ากลุ่ม)" class="admin-input">`;
+    inputContainer.innerHTML = inputHtml;
+}
+
+function confirmPurchase() {
+    const emailInput = document.getElementById('cust-email'); const lineInput = document.getElementById('cust-line'); let infoParts = [];
+    if (emailInput) { if (!emailInput.value.includes('@gmail.com')) return alert("กรุณาใช้อีเมล @gmail.com จ้า"); infoParts.push("📧 Email: " + emailInput.value); }
+    if (lineInput) { if (lineInput.value.length < 3) return alert("กรุณากรอกไอดีไลน์จ้า"); infoParts.push("🆔 Line: " + lineInput.value); }
+    let message = "🛒 *รายการสั่งซื้อใหม่*\n------------------\n";
+    Object.keys(state.cart).forEach(rowId => { const p = state.products.find(x => Number(x.row) === Number(rowId)); message += `- ${p.name} (x${state.cart[rowId]})\n`; });
+    message += `------------------\n💰 *ยอดรวม:* ${document.getElementById('checkout-final-sum').innerText} บาท\n👤 *ข้อมูลผู้ซื้อ:* \n${infoParts.join('\n')}`;
+    navigator.clipboard.writeText(message).then(() => { alert("สรุปรายการสำเร็จ! ระบบคัดลอกข้อมูลให้แล้ว กำลังส่งคุณไปที่ LINE จ้า"); window.location.href = "https://line.me/ti/p/@309ranuu"; });
 }
 
 async function updateProfileImage() {
-    const input = document.getElementById('new-profile-url');
-    const btn = document.querySelector('#profile-modal .btn-pj-main');
-    let rawUrl = input.value.trim();
-    if (!rawUrl) return alert("กรุณาวางลิงก์รูปก่อนจ้า");
-    
-    const originalText = btn.innerText; 
-    btn.innerText = "กำลังบันทึกข้อมูล..."; 
-    btn.disabled = true;
-
+    const input = document.getElementById('new-profile-url'); const btn = document.querySelector('#profile-modal .btn-pj-main');
+    if (!input.value.trim()) return alert("กรุณาวางลิงก์ก่อนจ้า");
+    btn.innerText = "กำลังบันทึก..."; btn.disabled = true;
     try {
-        // บันทึกผ่าน POST โดยใช้ action ที่ Library รู้จัก
-        await fetch(SCRIPT_URL, { 
-            method: 'POST', 
-            mode: 'no-cors', 
-            body: JSON.stringify({ action: 'saveProfile', url: rawUrl }) 
-        });
-
-        document.getElementById('shop-profile-img').src = formatDriveLink(rawUrl);
-        alert("✨ บันทึกสำเร็จ! รูปจะโชว์ถาวรในทุกเครื่องจ้า");
-        input.value = ""; closeProfileModal();
-        setTimeout(syncData, 1500); 
-
-    } catch (e) { alert("บันทึกไม่สำเร็จ"); } 
-    finally { btn.innerText = originalText; btn.disabled = false; }
+        await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'saveProfile', url: input.value.trim() }) });
+        alert("✨ บันทึกรูปโปรไฟล์ถาวรสำเร็จ!"); closeProfileModal(); setTimeout(syncData, 1500);
+    } catch (e) { alert("Error!"); } finally { btn.innerText = "บันทึกรูปภาพ"; btn.disabled = false; }
 }
 
-function handleAdminLogin() { 
-    const val = document.getElementById('admin-pass-input').value; 
-    if(val == currentPass) { isAdmin = true; showPage('admin-panel'); } 
-    else alert("รหัสผ่านผิดจ้า"); 
+function showPage(id) {
+    document.querySelectorAll('.page-container').forEach(p => p.classList.add('hidden-page'));
+    const el = document.getElementById('page-'+id); if(el) el.classList.remove('hidden-page');
+    const header = document.getElementById('main-header');
+    if(id === 'checkout') header.style.display = 'none'; else header.style.display = 'block';
 }
 
-function logoutAdmin() { isAdmin = false; location.reload(); }
-function checkAdminStatus() { isAdmin ? showPage('admin-panel') : showPage('admin-login'); }
-function openProfileModal() { if (!isAdmin) { alert("ส่วนนี้สำหรับ Admin เท่านั้นจ้า ✨"); return; } document.getElementById('profile-modal').classList.add('active'); }
+function checkAdminStatus() { state.isAdmin ? showPage('admin-panel') : showPage('admin-login'); }
+function handleAdminLogin() { if(document.getElementById('admin-pass-input').value === state.currentPass) { state.isAdmin = true; showPage('admin-panel'); } else alert("รหัสผ่านผิดจ้า"); }
+function logoutAdmin() { state.isAdmin = false; location.reload(); }
+function toggleCartModal(s) { document.getElementById('cart-modal').classList.toggle('active', s); if(s) renderCartItems(); }
+function openProfileModal() { if (!state.isAdmin) return; document.getElementById('profile-modal').classList.add('active'); }
 function closeProfileModal() { document.getElementById('profile-modal').classList.remove('active'); }
 
-window.addEventListener('DOMContentLoaded', () => { 
-    initDecors(); 
-    initNav(); 
-    syncData(); 
-});
+window.addEventListener('DOMContentLoaded', () => { initDecors(); initNav(); syncData(); });
 
-/* --- ฟังก์ชันนำทางสินค้าแอดมิน --- */
-function renderHome() { const grid = document.getElementById('home-grid'); if(grid) grid.innerHTML = products.filter(p => p.recommended).map(p => renderCard(p)).join(''); }
+/* --- ส่วนที่เหลือ (Admin Grid & Home) --- */
+function renderHome() { const g = document.getElementById('home-grid'); if(g) g.innerHTML = state.products.filter(p => p.recommended).map(p => renderCard(p)).join(''); }
+function renderAdminItems() { const g = document.getElementById('admin-items-grid'); if(g) g.innerHTML = state.products.map(p => `<div class="flex justify-between items-center p-3 bg-pj-blue-light/30 rounded-xl border border-white mb-2 shadow-sm"><span>${p.name}</span><button onclick="editProduct(${p.row})" class="text-[10px] btn-edit-style px-3 py-1 rounded-lg">แก้ไข</button></div>`).join(''); }
 function initNav() {
-    const groups = ['ฟอนต์', 'ลายน้ำ', 'BG', 'ไฟล์ตกแต่ง', 'อื่นๆ', 'รวมกลุ่ม']; const container = document.getElementById('group-nav-list');
-    if(container) container.innerHTML = groups.map(g => `<button onclick="handleGroupClick('${g}')" class="category-pill shadow-sm">${g}</button>`).join('');
+    const groups = ['ฟอนต์', 'ลายน้ำ', 'BG', 'ไฟล์ตกแต่ง', 'อื่นๆ', 'รวมกลุ่ม'];
+    document.getElementById('group-nav-list').innerHTML = groups.map(g => `<button onclick="handleGroupClick('${g}')" class="category-pill shadow-sm">${g}</button>`).join('');
 }
 function handleGroupClick(g, isRefresh = false) {
-    const categoryProducts = products.filter(p => p.cat === (g === 'รวมกลุ่ม' ? 'กลุ่ม' : g));
-    const uniqueSubs = [...new Set(categoryProducts.map(p => p.sub).filter(s => s))];
-    const subList = ['รวมทั้งหมด', ...uniqueSubs]; let sheetCategory = g === 'รวมกลุ่ม' ? 'กลุ่ม' : g;
+    const items = state.products.filter(p => p.cat === (g === 'รวมกลุ่ม' ? 'กลุ่ม' : g));
+    const subList = ['รวมทั้งหมด', ...new Set(items.map(p => p.sub).filter(s => s))];
     if (!isRefresh) showPage('subcat'); document.getElementById('cat-header-title').innerText = g;
-    document.getElementById('sub-nav-list').innerHTML = subList.map(s => `<button onclick="renderNetworks('${sheetCategory}', '${s}')" class="category-pill border-pj-brown-light shadow-sm transition-transform active:scale-95">${s}</button>`).join('');
-    renderNetworks(sheetCategory, 'รวมทั้งหมด');
+    document.getElementById('sub-nav-list').innerHTML = subList.map(s => `<button onclick="renderNetworks('${g === 'รวมกลุ่ม' ? 'กลุ่ม' : g}', '${s}')" class="category-pill shadow-sm">${s}</button>`).join('');
+    renderNetworks(g === 'รวมกลุ่ม' ? 'กลุ่ม' : g, 'รวมทั้งหมด');
 }
 function renderNetworks(cat, sub) {
-    const container = document.getElementById('networks-list-view'); let items = products.filter(p => p.cat === cat); if(sub !== 'รวมทั้งหมด') items = items.filter(p => p.sub === sub);
+    let items = state.products.filter(p => p.cat === cat); if(sub !== 'รวมทั้งหมด') items = items.filter(p => p.sub === sub);
     const nets = [...new Set(items.map(p => p.network))];
-    container.innerHTML = nets.map(net => {
+    document.getElementById('networks-list-view').innerHTML = nets.map(net => {
         const netItems = items.filter(p => p.network === net);
-        return `<div class="bg-white/40 p-5 rounded-[40px] mb-8 shadow-sm"><div class="flex justify-between items-center mb-5 border-l-4 border-pj-brown-main pl-3 text-pj-brown-dark"><h4 class="font-bold">เครือ: ${net || 'ทั่วไป'}</h4></div><div class="grid grid-cols-2 md:grid-cols-3 gap-5">${netItems.slice(0, 6).map(p => renderCard(p)).join('')}</div></div>`;
+        return `<div class="bg-white/40 p-5 rounded-[40px] mb-8 shadow-sm"><h4 class="font-bold border-l-4 border-pj-brown-main pl-3 mb-5">${net || 'ทั่วไป'}</h4><div class="grid grid-cols-2 md:grid-cols-3 gap-5">${netItems.map(p => renderCard(p)).join('')}</div></div>`;
     }).join('');
-    if (window.lucide) lucide.createIcons();
 }
-function toggleCartModal(show) { document.getElementById('cart-modal').classList.toggle('active', show); if(show) renderCartItems(); }
-function renderAdminItems() {
-    const container = document.getElementById('admin-items-grid'); if(!container) return;
-    container.innerHTML = products.map(p => `<div class="flex justify-between items-center p-3 bg-pj-blue-light/30 rounded-xl border border-white mb-2 shadow-sm"><span class="text-[11px] font-bold truncate w-2/3">${p.name}</span><button onclick="editProduct(${p.row})" class="text-[10px] btn-edit-style px-3 py-1 rounded-lg">แก้ไข</button></div>`).join('');
-}
-function resetAdminForm() { document.getElementById('edit-row').value = ""; document.querySelectorAll('.admin-input').forEach(i => i.value = ''); document.getElementById('new-recommended').checked = false; document.getElementById('new-limitOne').checked = false; document.getElementById('admin-form-title').innerText = "➕ เพิ่มสินค้าใหม่"; document.getElementById('btn-cancel-edit').classList.add('hidden'); }
 async function addNewProductToSheet() {
-    const btn = document.getElementById('btn-save-sheet');
     const data = { row: document.getElementById('edit-row').value, name: document.getElementById('new-name').value, price: Number(document.getElementById('new-price').value), discount: Number(document.getElementById('new-discount').value) || 0, cat: document.getElementById('new-cat').value, sub: document.getElementById('new-sub').value, network: document.getElementById('new-net').value, image: formatDriveLink(document.getElementById('new-img').value), preview: document.getElementById('new-preview').value, recommended: document.getElementById('new-recommended').checked, limitOne: document.getElementById('new-limitOne').checked };
-    if(!data.name || !data.price) return alert("กรุณากรอกชื่อและราคา"); btn.innerText = "กำลังบันทึก..."; btn.disabled = true;
-    try { await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'saveProduct', product: data }) }); alert(data.row ? "แก้ไขสำเร็จ!" : "บันทึกสำเร็จ!"); resetAdminForm(); syncData(); } catch(e) { alert("เกิดข้อผิดพลาด"); } finally { btn.innerText = "บันทึกข้อมูลสินค้า"; btn.disabled = false; }
+    if(!data.name || !data.price) return alert("กรุณากรอกข้อมูล");
+    try { await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'saveProduct', product: data }) }); alert("บันทึกสำเร็จ!"); resetAdminForm(); syncData(); } catch(e) { alert("Error!"); }
 }
 function editProduct(rowId) {
-    const p = products.find(prod => Number(prod.row) === Number(rowId)); if (!p) return;
-    document.getElementById('edit-row').value = p.row; document.getElementById('new-name').value = p.name; document.getElementById('new-price').value = p.price; document.getElementById('new-discount').value = p.discount; document.getElementById('new-cat').value = p.cat; document.getElementById('new-sub').value = p.sub; document.getElementById('new-net').value = p.network; document.getElementById('new-img').value = p.image; document.getElementById('new-preview').value = p.preview || ''; document.getElementById('new-recommended').checked = p.recommended; document.getElementById('new-limitOne').checked = p.limitOne; document.getElementById('admin-form-title').innerText = "📝 แก้ไขรายการสินค้า"; document.getElementById('btn-cancel-edit').classList.remove('hidden'); window.scrollTo({ top: document.getElementById('page-admin-panel').offsetTop, behavior: 'smooth' });
+    const p = state.products.find(prod => Number(prod.row) === Number(rowId));
+    document.getElementById('edit-row').value = p.row; document.getElementById('new-name').value = p.name; document.getElementById('new-price').value = p.price; document.getElementById('new-cat').value = p.cat; document.getElementById('new-sub').value = p.sub; document.getElementById('new-net').value = p.network; document.getElementById('new-img').value = p.image; document.getElementById('new-recommended').checked = p.recommended; document.getElementById('new-limitOne').checked = p.limitOne; showPage('admin-panel');
 }
+function resetAdminForm() { document.getElementById('edit-row').value = ""; document.querySelectorAll('.admin-input').forEach(i => i.value = ''); }
